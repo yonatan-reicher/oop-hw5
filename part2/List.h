@@ -34,11 +34,29 @@ struct PrependList<Only, List<>> {
     using list = List<Only>;
 };
 
-// head + [old_head, tail...]
+// [head] + [old_head, tail...]
 template <typename Head, typename OldHead, typename ... Tail>
 struct PrependList<Head, List<OldHead, Tail...>> {
     using list = List<Head, OldHead, Tail...>;
 };
+
+
+// This is just like prepend, but from the back! Useful in some cases.
+template <typename Head, typename Rest>
+struct AppendList;
+
+// only + []
+template <typename Only>
+struct AppendList<Only, List<>> {
+    using list = List<Only>;
+};
+
+// [head, tail...] + [X] = [head] + ([tail...] + [X])
+template <typename Head, typename ... Tail, typename X>
+struct AppendList<X, List<Head, Tail...>> {
+    using list = typename PrependList<Head, typename AppendList<X, List<Tail...>>::list>::list;
+};
+
 
 template <int N, typename List>
 struct GetAtIndex;
