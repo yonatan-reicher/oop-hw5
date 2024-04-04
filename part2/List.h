@@ -91,4 +91,19 @@ struct SetAtIndex<N, X, List<Head, Tail...>> {
     using list = typename PrependList<Head, rec>::list;
 };
 
+
+template <typename List1, typename List2>
+struct Concat;
+
+template <typename ... T2>
+struct Concat<List<>, List<T2...>> {
+    using list = List<T2...>;
+};
+
+template <typename H, typename ... T1, typename ... T2>
+struct Concat<List<H, T1...>, List<T2...>> {
+    using list = typename PrependList<H, typename Concat<List<T1...>, List<T2...>>::list>::list;
+};
+
+
 #endif
