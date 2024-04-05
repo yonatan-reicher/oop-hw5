@@ -7,12 +7,11 @@
 #include "Direction.h"
 #include "BoardCell.h"
 #include "GameBoard.h"
+#include "MoveVehicle.h"
 
 
 template <typename RowList>
-struct AllEmptyOrX {
-    static_assert(false, "RowList was not a list of cells!");
-};
+struct AllEmptyOrX;
 
 template <>
 struct AllEmptyOrX<List<>> {
@@ -28,9 +27,7 @@ struct AllEmptyOrX<List<Head, Tail...>> {
 
 
 template <typename GameBoard>
-struct CheckWin {
-    static_assert(false, "GameBoard was not a gameboard!");
-};
+struct CheckWin;
 
 // CheckWin([]) = false
 template <>
@@ -59,6 +56,27 @@ struct CheckWin<GameBoard<List<Head, Tail...>>> {
     using first_row = CheckWin<List<Head>>;
     using rest = CheckWin<GameBoard<List<Tail...>>>;
     static constexpr bool result = first_row::result || rest::result;
+};
+
+template <typename GB, typename MoveList>
+struct CheckSolution;
+
+template <typename B>
+struct CheckSolution<GameBoard<B>, List<>> {
+    static constexpr bool result = CheckWin<GameBoard<B>>::result;
+};
+
+template <typename B, typename Move0, typename ... MovesRest>
+struct CheckSolution<GameBoard<B>, List<Move0, MovesRest...>> {
+    // TODO: Rename
+    using GBAfterMove0 = typename MoveVehicle<
+        GameBoard<B>,
+        Move0::row, Move0::col, Move0::dir, Move0::amount
+    >::board;
+    using Rec = CheckSolution<GBAfterMove0, List<MovesRest...>>;
+
+    // TODO:
+    static constexpr bool result = Rec::result;
 };
 
 #endif

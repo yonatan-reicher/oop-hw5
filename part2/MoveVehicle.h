@@ -67,6 +67,11 @@ struct AssertPathEmpty {
     > recurse;
 };
 
+template <typename B, int Row, int Col, Direction Dir>
+struct AssertPathEmpty<B, Row, Col, Dir, 0> {
+    // End of recursion!
+};
+
 template <typename B, int Row, int Col, typename BoardCell>
 struct SetCell {
     static_assert(
@@ -85,13 +90,16 @@ struct SetCell {
             Row,
             BoardCell,
             row
-        >::value,
+        >::list,
         B
-    >::value;
+    >::list;
 };
 
 template <int Row, int Col>
-struct RowCol {};
+struct RowCol {
+    static constexpr int row = Row;
+    static constexpr int col = Col;
+};
 
 template <
     typename B, int Row, int Col,
@@ -105,42 +113,46 @@ template <
         // are deleting (Cell).
         && Cell::type == ThisCell::type
         && Cell::direction == ThisCell::direction
-        && Cell::amount == ThisCell::amount
+        && Cell::length == ThisCell::length
 >
 struct DeleteCar;
 
 // Valid case! Do the deletion.
 template < typename B, int Row, int Col, typename Cell, typename ThisCell>
 struct DeleteCar<B, Row, Col, Cell, ThisCell, true> {
-    using right = typename BoundedOffsetCell<B, Row, Col, Direction::RIGHT, 1>::cell;
-    using left = typename BoundedOffsetCell<B, Row, Col, Direction::LEFT, 1>::cell;
-    using up = typename BoundedOffsetCell<B, Row, Col, Direction::UP, 1>::cell;
-    using down = typename BoundedOffsetCell<B, Row, Col, Direction::DOWN, 1>::cell;
+    using right_offset = BoundedOffsetCell<B, Row, Col, Direction::RIGHT, 1>;
+    using left_offset = BoundedOffsetCell<B, Row, Col, Direction::LEFT, 1>;
+    using up_offset = BoundedOffsetCell<B, Row, Col, Direction::UP, 1>;
+    using down_offset = BoundedOffsetCell<B, Row, Col, Direction::DOWN, 1>;
+    using right = typename GetCell<B, right_offset::row, right_offset::col>::cell;
+    using left = typename GetCell<B, left_offset::row, left_offset::col>::cell;
+    using up = typename GetCell<B, up_offset::row, up_offset::col>::cell;
+    using down = typename GetCell<B, down_offset::row, down_offset::col>::cell;
 
     using board0 = SetCell<
         B,
         Row, Col,
         BoardCell<CellType::EMPTY, Direction::RIGHT, 0>
     >;
-    using board1 = DeleteCar<typename board0::board, up::row, up::col, Cell>;
-    using board2 = DeleteCar<typename board1::board, down::row, down::col, Cell>;
-    using board3 = DeleteCar<typename board2::board, left::row, left::col, Cell>;
-    using board4 = DeleteCar<typename board3::board, right::row, right::col, Cell>;
+    using board1 = DeleteCar<typename board0::board, up_offset::row, up_offset::col, Cell>;
+    using board2 = DeleteCar<typename board1::board, down_offset::row, down_offset::col, Cell>;
+    using board3 = DeleteCar<typename board2::board, left_offset::row, left_offset::col, Cell>;
+    using board4 = DeleteCar<typename board3::board, right_offset::row, right_offset::col, Cell>;
 
     using board = typename board4::board;
-    using deleted = Concat<
+    using deleted = typename Concat<
         typename board1::deleted,
-        Concat<
+        typename Concat<
             typename board2::deleted,
-            Concat<
+            typename Concat<
                 typename board3::deleted,
-                Concat<
+                typename Concat<
                     typename board4::deleted,
                     List<RowCol<Row, Col>>
-                >
-            >
-        >
-    >;
+                >::list
+            >::list
+        >::list
+    >::list;
 };
 
 // This cell is invalid! Do nothing.
@@ -187,9 +199,7 @@ constexpr Direction opposite(Direction dir) {
 
 
 template <typename GameBoard, int Row, int Col, Direction Dir, int Amount>
-struct MoveVehicle {
-    static_assert(false, "First argument to MoveVehicle must be a GameBoard!");
-};
+struct MoveVehicle;
 
 template <typename B, int Row, int Col, Direction Dir, int Amount>
 struct MoveVehicle<GameBoard<B>, Row, Col, Dir, Amount> {
@@ -205,7 +215,7 @@ struct MoveVehicle<GameBoard<B>, Row, Col, Dir, Amount> {
 
     // This member holds the board after the execution of the move.
     using delete_car = DeleteCar<B, Row, Col>;
-    AssertPathEmpty<B, Row, Col, Dir, Amount> assert_path_empty;
+    AssertPathEmpty<typename delete_car::board, Row, Col, Dir, Amount> assert_path_empty;
     using board = typename SetCells<
         typename delete_car::board,
         typename delete_car::deleted,
