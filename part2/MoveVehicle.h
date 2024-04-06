@@ -13,7 +13,7 @@
 template <CellType Type, Direction Dir, int Amount>
 struct Move {
     static constexpr CellType type = Type;
-    static constexpr Direction dir = Dir;
+    static constexpr Direction direction = Dir;
     static constexpr int amount = Amount;
 
     static_assert(type != CellType::EMPTY, "Tried moving an empty cell!");
@@ -32,14 +32,14 @@ struct OffsetCell {
 template <typename B, int Row, int Col, Direction Dir, int Amount>
 struct BoundedOffsetCell {
     using offset = OffsetCell<Row, Col, Dir, Amount>;
-    static constexpr int row = std::max(0, std::min(offset::row, GameBoard<B>::width - 1));
-    static constexpr int col = std::max(0, std::min(offset::col, GameBoard<B>::height - 1));
+    static constexpr int row = std::max(0, std::min(offset::row, GameBoard<B>::height - 1));
+    static constexpr int col = std::max(0, std::min(offset::col, GameBoard<B>::width - 1));
 };
 
 template <typename B, int Row, int Col>
 struct GetCell {
-    static_assert(0 <= Row && Row < GameBoard<B>::width, "Tried getting a cell outside the board!");
-    static_assert(0 <= Col && Col < GameBoard<B>::height, "Tried getting a cell outside the board!");
+    static_assert(0 <= Row && Row < GameBoard<B>::height, "Tried getting a cell outside the board!");
+    static_assert(0 <= Col && Col < GameBoard<B>::width, "Tried getting a cell outside the board!");
 
     using cell = typename GetAtIndex<Col, typename GetAtIndex<Row, B>::value>::value;
 };
@@ -47,8 +47,8 @@ struct GetCell {
 template <
     typename B, int Row, int Col,
     bool InBounds =
-        0 <= Row && Row < GameBoard<B>::width
-        && 0 <= Col && Col < GameBoard<B>::height
+        0 <= Row && Row < GameBoard<B>::height
+        && 0 <= Col && Col < GameBoard<B>::width
 >
 struct TryGetCell;
 
@@ -96,11 +96,11 @@ struct AssertPathEmpty<B, Row, Col, Dir, 0> {
 template <typename B, int Row, int Col, typename BoardCell>
 struct SetCell {
     static_assert(
-        0 <= Row && Row < GameBoard<B>::width,
+        0 <= Row && Row < GameBoard<B>::height,
         "Tried setting a cell outside the board!"
     );
     static_assert(
-        0 <= Col && Col < GameBoard<B>::height,
+        0 <= Col && Col < GameBoard<B>::width,
         "Tried setting a cell outside the board!"
     );
 
@@ -131,8 +131,8 @@ template <
     typename ThisCell = typename TryGetCell<B, Row, Col>::cell,
     bool Valid =
         // Only do the move if the indices are valid...
-        0 <= Row && Row < GameBoard<B>::width
-        && 0 <= Col && Col < GameBoard<B>::height
+        0 <= Row && Row < GameBoard<B>::height
+        && 0 <= Col && Col < GameBoard<B>::width
         // And the cell at the index (ThisCell) matches the cell of the car we
         // are moving (Cell).
         && Cell::type == ThisCell::type
@@ -264,8 +264,8 @@ struct MoveVehicle<GameBoard<B>, Row, Col, Dir, Amount> {
 
     using cell = typename GetAtIndex<Col, typename GetAtIndex<Row, B>::value>::value;
 
-    static_assert(0 <= Row && Row < width, "Tried moving at a cell outside the board!");
-    static_assert(0 <= Col && Col < height, "Tried moving at a cell outside the board!");
+    static_assert(0 <= Row && Row < height, "Tried moving at a cell outside the board!");
+    static_assert(0 <= Col && Col < width, "Tried moving at a cell outside the board!");
     static_assert(cell::type != CellType::EMPTY, "Tried moving an empty cell!");
     static_assert(cell::direction == Dir || cell::direction == opposite(Dir), "Tried moving a car in the wrong direction!");
 

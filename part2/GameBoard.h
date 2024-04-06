@@ -13,7 +13,7 @@ struct GameBoard {
         // Here, if we did not use AppendList::list, we could not call head.
         AppendList<List<>, board>::list::head::size;
     static constexpr int height = Board::size;
-
+    static constexpr int length = height;
 };
 
 // Check that empty board compiles. Just in case.

@@ -17,7 +17,10 @@ struct List<> {
 template <typename Head, typename ... Tail>
 struct List<Head, Tail...> {
     using head = Head;
+    // Accidentally thought the requirement was to have a field called tail,
+    // now I don't feel like changing it so we have both.
     using tail = List<Tail...>;
+    using next = List<Tail...>;
 
     static constexpr int size = 1 + tail::size;
 };

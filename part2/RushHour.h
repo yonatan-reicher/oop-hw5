@@ -62,7 +62,7 @@ template <
     typename B, typename Move0,
     int Row = 0, int Col = 0,
     bool BoundReached =
-        Row >= GameBoard<B>::width || Col >= GameBoard<B>::height
+        Row >= GameBoard<B>::height || Col >= GameBoard<B>::width
 >
 struct FindRowCol;
 
@@ -75,7 +75,7 @@ struct FindRowCol<B, Move0, Row, Col, false> {
 
     static constexpr bool found_here =
         cell::type == Move0::type
-        && (cell::direction == Move0::dir || cell::direction == opposite(Move0::dir));
+        && (cell::direction == Move0::direction || cell::direction == opposite(Move0::direction));
     static constexpr bool found = found_here || RecDown::found || RecRight::found;
 
     static constexpr int row =
@@ -108,12 +108,20 @@ struct CheckSolution<GameBoard<B>, List<Move0, MovesRest...>> {
     using find = FindRowCol<B, Move0>;
     using GBAfterMove0 = typename MoveVehicle<
         GameBoard<B>,
-        find::row, find::col, Move0::dir, Move0::amount
+        find::row, find::col, Move0::direction, Move0::amount
     >::board;
-    static_assert(GBAfterMove0::width == GameBoard<B>::width, "Width changed!");
     using Rec = CheckSolution<GBAfterMove0, List<MovesRest...>>;
 
     static constexpr bool result = Rec::result;
 };
+
+/*
+typedef GameBoard< List<
+        List < BoardCell< EMPTY , RIGHT , 0 >, BoardCell< EMPTY , RIGHT , 0 >, BoardCell< EMPTY , RIGHT , 0>, BoardCell< X , RIGHT , 1 >, BoardCell< EMPTY , RIGHT , 0>, BoardCell< EMPTY , RIGHT , 0>, BoardCell< EMPTY , RIGHT , 0>>
+>> solvedBoard;
+
+template class CheckSolution<solvedBoard, List<Move < X, RIGHT, 1 >>>;
+*/
+
 
 #endif
