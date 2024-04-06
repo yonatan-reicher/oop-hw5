@@ -44,6 +44,27 @@ struct GetCell {
     using cell = typename GetAtIndex<Col, typename GetAtIndex<Row, B>::value>::value;
 };
 
+template <
+    typename B, int Row, int Col,
+    bool InBounds =
+        0 <= Row && Row < GameBoard<B>::width
+        && 0 <= Col && Col < GameBoard<B>::height
+>
+struct TryGetCell;
+
+template <typename B, int Row, int Col>
+struct TryGetCell<B, Row, Col, true> {
+    using get_cell = GetCell<B, Row, Col>;
+    static constexpr bool fine = true;
+    using cell = typename get_cell::cell;
+};
+
+template <typename B, int Row, int Col>
+struct TryGetCell<B, Row, Col, false> {
+    static constexpr bool fine = false;
+    using cell = BoardCell<CellType::EMPTY, Direction::UP, 0>;
+};
+
 
 // Takes a cell, a direction and an path length. Checks that all cells in the
 // path are empty.
@@ -85,14 +106,17 @@ struct SetCell {
 
     using row = typename GetAtIndex<Row, B>::value;
     using board = typename SetAtIndex<
-        Col,
+        Row,
         typename SetAtIndex<
-            Row,
+            Col,
             BoardCell,
             row
         >::list,
         B
     >::list;
+
+    static_assert(GameBoard<board>::width == GameBoard<B>::width, "Width should not change!");
+    static_assert(GameBoard<board>::height == GameBoard<B>::height, "Height should not change!");
 };
 
 template <int Row, int Col>
@@ -102,42 +126,78 @@ struct RowCol {
 };
 
 template <
-    typename B, int Row, int Col,
-    typename Cell = typename GetCell<B, Row, Col>::cell,
-    typename ThisCell = typename GetCell<B, Row, Col>::cell,
+    typename B, int Row, int Col, Direction Dir,
+    typename Cell,
+    typename ThisCell = typename TryGetCell<B, Row, Col>::cell,
     bool Valid =
-        // Only do the deletion if the indices are valid...
+        // Only do the move if the indices are valid...
         0 <= Row && Row < GameBoard<B>::width
         && 0 <= Col && Col < GameBoard<B>::height
         // And the cell at the index (ThisCell) matches the cell of the car we
-        // are deleting (Cell).
+        // are moving (Cell).
         && Cell::type == ThisCell::type
-        && Cell::direction == ThisCell::direction
+        // && Cell::direction == ThisCell::direction
+        && (Cell::direction == ThisCell::direction
+            || Cell::direction == opposite(ThisCell::direction))
         && Cell::length == ThisCell::length
 >
-struct DeleteCar;
+struct DeleteCarHelper;
 
-// Valid case! Do the deletion.
-template < typename B, int Row, int Col, typename Cell, typename ThisCell>
-struct DeleteCar<B, Row, Col, Cell, ThisCell, true> {
+template <typename B, int Row, int Col, Direction Dir, typename Cell, typename ThisCell>
+struct DeleteCarHelper<B, Row, Col, Dir, Cell, ThisCell, true> {
+    using next_offset = OffsetCell<Row, Col, Dir, 1>;
+
+    using board0 = typename SetCell<
+        B, Row, Col,
+        BoardCell<CellType::EMPTY, Direction::RIGHT, 0>
+    >::board;
+    using rec = DeleteCarHelper<board0, next_offset::row, next_offset::col, Dir, Cell>;
+    using board = typename rec::board;
+    using deleted = typename Concat<
+        typename rec::deleted,
+        List<RowCol<Row, Col>>
+    >::list;
+};
+
+template <typename B, int Row, int Col, Direction Dir, typename Cell, typename ThisCell>
+struct DeleteCarHelper<B, Row, Col, Dir, Cell, ThisCell, false> {
+    using board = B;
+    using deleted = List<>;
+};
+
+template <typename B, int Row, int Col>
+struct DeleteCar {
     using right_offset = BoundedOffsetCell<B, Row, Col, Direction::RIGHT, 1>;
     using left_offset = BoundedOffsetCell<B, Row, Col, Direction::LEFT, 1>;
     using up_offset = BoundedOffsetCell<B, Row, Col, Direction::UP, 1>;
     using down_offset = BoundedOffsetCell<B, Row, Col, Direction::DOWN, 1>;
-    using right = typename GetCell<B, right_offset::row, right_offset::col>::cell;
-    using left = typename GetCell<B, left_offset::row, left_offset::col>::cell;
-    using up = typename GetCell<B, up_offset::row, up_offset::col>::cell;
-    using down = typename GetCell<B, down_offset::row, down_offset::col>::cell;
+    using cell = typename GetCell<B, Row, Col>::cell;
 
     using board0 = SetCell<
         B,
         Row, Col,
         BoardCell<CellType::EMPTY, Direction::RIGHT, 0>
     >;
-    using board1 = DeleteCar<typename board0::board, up_offset::row, up_offset::col, Cell>;
-    using board2 = DeleteCar<typename board1::board, down_offset::row, down_offset::col, Cell>;
-    using board3 = DeleteCar<typename board2::board, left_offset::row, left_offset::col, Cell>;
-    using board4 = DeleteCar<typename board3::board, right_offset::row, right_offset::col, Cell>;
+    using board1 = DeleteCarHelper<
+        typename board0::board,
+        up_offset::row, up_offset::col, Direction::UP,
+        cell
+    >;
+    using board2 = DeleteCarHelper<
+        typename board1::board,
+        down_offset::row, down_offset::col, Direction::DOWN,
+        cell
+    >;
+    using board3 = DeleteCarHelper<
+        typename board2::board,
+        left_offset::row, left_offset::col, Direction::LEFT,
+        cell
+    >;
+    using board4 = DeleteCarHelper<
+        typename board3::board,
+        right_offset::row, right_offset::col, Direction::RIGHT,
+        cell
+    >;
 
     using board = typename board4::board;
     using deleted = typename Concat<
@@ -155,29 +215,25 @@ struct DeleteCar<B, Row, Col, Cell, ThisCell, true> {
     >::list;
 };
 
-// This cell is invalid! Do nothing.
-template < typename B, int Row, int Col, typename Cell, typename ThisCell>
-struct DeleteCar<B, Row, Col, Cell, ThisCell, false> {
-    using board = B;
-    using deleted = List<>;
-};
-
-
-template <typename B, typename Positions, typename CellToSet>
+template <typename B, typename Positions, typename CellToSet, Direction Dir, int Amount>
 struct SetCells;
 
-template <typename B, typename CellToSet>
-struct SetCells<B, List<>, CellToSet> {
+template <typename B, typename CellToSet, Direction Dir, int Amount>
+struct SetCells<B, List<>, CellToSet, Dir, Amount> {
     using board = B;
 };
 
-template <typename B, typename Head, typename... Tail, typename CellToSet>
-struct SetCells<B, List<Head, Tail...>, CellToSet> {
-    // TODO: Assert that this spot is empty!
+template <typename B, typename Head, typename... Tail, typename CellToSet, Direction Dir, int Amount>
+struct SetCells<B, List<Head, Tail...>, CellToSet, Dir, Amount> {
+    using offset = OffsetCell<Head::row, Head::col, Dir, Amount>;
+    static_assert(
+        GetCell<B, offset::row, offset::col>::cell::type == CellType::EMPTY,
+        "Tried moving a car to a non-empty cell!"
+    );
     using board = typename SetCell<
-        typename SetCells<B, List<Tail...>, CellToSet>::board,
-        Head::row,
-        Head::col,
+        typename SetCells<B, List<Tail...>, CellToSet, Dir, Amount>::board,
+        offset::row,
+        offset::col,
         CellToSet
     >::board;
 };
@@ -216,11 +272,13 @@ struct MoveVehicle<GameBoard<B>, Row, Col, Dir, Amount> {
     // This member holds the board after the execution of the move.
     using delete_car = DeleteCar<B, Row, Col>;
     AssertPathEmpty<typename delete_car::board, Row, Col, Dir, Amount> assert_path_empty;
-    using board = typename SetCells<
+    using board = GameBoard<typename SetCells<
         typename delete_car::board,
         typename delete_car::deleted,
-        cell
-    >::board;
+        cell,
+        Dir,
+        Amount
+    >::board>;
 };
 
 

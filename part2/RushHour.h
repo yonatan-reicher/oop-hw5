@@ -46,16 +46,53 @@ template <typename Head, typename ... Tail>
 struct CheckWin<GameBoard<List<List<Head, Tail...>>>> {
     static constexpr bool result =
         (Head::type == CellType::X && AllEmptyOrX<List<Tail...>>::result)
-        || CheckWin<GameBoard<List<Tail...>>>::result;
+        || CheckWin<GameBoard<List<List<Tail...>>>>::result;
 };
 
 // CheckWin([head, tail...]) = CheckWin([head]) || CheckWin([tail...])
 
 template <typename Head, typename ... Tail>
 struct CheckWin<GameBoard<List<Head, Tail...>>> {
-    using first_row = CheckWin<List<Head>>;
+    using first_row = CheckWin<GameBoard<List<Head>>>;
     using rest = CheckWin<GameBoard<List<Tail...>>>;
     static constexpr bool result = first_row::result || rest::result;
+};
+
+template <
+    typename B, typename Move0,
+    int Row = 0, int Col = 0,
+    bool BoundReached =
+        Row >= GameBoard<B>::width || Col >= GameBoard<B>::height
+>
+struct FindRowCol;
+
+template <typename B, typename Move0, int Row, int Col>
+struct FindRowCol<B, Move0, Row, Col, false> {
+    using cell = typename GetCell<B, Row, Col>::cell;
+
+    using RecDown = FindRowCol<B, Move0, Row + 1, Col>;
+    using RecRight = FindRowCol<B, Move0, Row, Col + 1>;
+
+    static constexpr bool found_here =
+        cell::type == Move0::type
+        && (cell::direction == Move0::dir || cell::direction == opposite(Move0::dir));
+    static constexpr bool found = found_here || RecDown::found || RecRight::found;
+
+    static constexpr int row =
+        found_here ? Row :
+        RecDown::found ? RecDown::row :
+        RecRight::row;
+    static constexpr int col =
+        found_here ? Col :
+        RecDown::found ? RecDown::col :
+        RecRight::col;
+};
+
+template <typename B, typename Move0, int Row, int Col>
+struct FindRowCol<B, Move0, Row, Col, true> {
+    static constexpr bool found = false;
+    static constexpr int row = -1;
+    static constexpr int col = -1;
 };
 
 template <typename GB, typename MoveList>
@@ -68,14 +105,14 @@ struct CheckSolution<GameBoard<B>, List<>> {
 
 template <typename B, typename Move0, typename ... MovesRest>
 struct CheckSolution<GameBoard<B>, List<Move0, MovesRest...>> {
-    // TODO: Rename
+    using find = FindRowCol<B, Move0>;
     using GBAfterMove0 = typename MoveVehicle<
         GameBoard<B>,
-        Move0::row, Move0::col, Move0::dir, Move0::amount
+        find::row, find::col, Move0::dir, Move0::amount
     >::board;
+    static_assert(GBAfterMove0::width == GameBoard<B>::width, "Width changed!");
     using Rec = CheckSolution<GBAfterMove0, List<MovesRest...>>;
 
-    // TODO:
     static constexpr bool result = Rec::result;
 };
 

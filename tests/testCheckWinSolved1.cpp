@@ -1,6 +1,6 @@
 #include "OOP5_Part2_TestHeader.h"
 #include "GameBoard.h"
-#include "RushHour.h"
+#include "../part2/RushHour.h"
 
 void testSolved1(){
     typedef GameBoard< List<
