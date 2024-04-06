@@ -29,11 +29,15 @@ struct OffsetCell {
         Col + (Dir == Direction::RIGHT ? Amount : 0) - (Dir == Direction::LEFT ? Amount : 0);
 };
 
+constexpr int clamp(int value, int min, int max) {
+    return value < min ? min : (value > max ? max : value);
+}
+
 template <typename B, int Row, int Col, Direction Dir, int Amount>
 struct BoundedOffsetCell {
     using offset = OffsetCell<Row, Col, Dir, Amount>;
-    static constexpr int row = std::max(0, std::min(offset::row, GameBoard<B>::height - 1));
-    static constexpr int col = std::max(0, std::min(offset::col, GameBoard<B>::width - 1));
+    static constexpr int row = clamp(offset::row, 0, GameBoard<B>::height - 1);
+    static constexpr int col = clamp(offset::col, 0, GameBoard<B>::width - 1);
 };
 
 template <typename B, int Row, int Col>

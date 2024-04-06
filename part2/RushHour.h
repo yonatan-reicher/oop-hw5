@@ -9,6 +9,13 @@
 #include "GameBoard.h"
 #include "MoveVehicle.h"
 
+// Circular dependency! Weird, but okay.
+template <typename B, int Row, int Col>
+struct GetCell;
+
+template <typename GameBoard, int Row, int Col, Direction Dir, int Amount>
+struct MoveVehicle;
+
 
 template <typename RowList>
 struct AllEmptyOrX;
